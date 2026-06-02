@@ -25,6 +25,10 @@
         .sum-col { font-weight: bold; color: #d84315; }
         .spend-col { color: #2e7d32; font-weight: bold; }
         .loading { text-align: center; color: #0078D7; font-weight: bold; display: none; margin: 20px 0; }
+        
+        /* 總計列的專屬樣式 */
+        .total-row { background-color: #e3f2fd; font-size: 15px; border-bottom: 2px solid #90caf9; }
+        .total-row td { color: #0d47a1; }
     </style>
 </head>
 <body>
@@ -67,10 +71,9 @@
 
 <script>
     // 🌐 雲端後端網址設定
-    // 當你在本地測試時會自動連本地端；部署到 Render 後，請把下面的 'https://你的後端網址.onrender.com' 換成 Render 給你的網址
     const BACKEND_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
         ? 'http://127.0.0.1:8000'
-        : 'https://meta-ad-backend.onrender.com'; 
+        : 'https://你的後端網址.onrender.com'; // 部署後請替換此網址
 
     const today = new Date();
     const lastWeek = new Date(today);
@@ -99,7 +102,6 @@
         document.getElementById('loading').style.display = 'block';
         document.getElementById('dashboard').style.display = 'none';
 
-        // 這裡改用動態的 BACKEND_URL
         fetch(`${BACKEND_URL}/api/campaign_stats?start_date=${startDate}&end_date=${endDate}&account_ids=${accountIds}`)
             .then(res => res.json())
             .then(result => {
@@ -143,10 +145,36 @@
         // 依據總詢問數排序
         dataArray.sort((a, b) => b.total - a.total);
 
+        // --- 1. 計算所有縣市的總計 ---
+        let grandTotalSpend = 0;
+        let grandTotalInquiries = 0;
+        dataArray.forEach(row => {
+            grandTotalSpend += row.spend;
+            grandTotalInquiries += row.total;
+        });
+
+        // 建立並插入「總計」列到表格最上方
+        let grandTotalTr = document.createElement('tr');
+        grandTotalTr.className = 'total-row'; // 套用專屬 CSS 樣式
+        
+        let grandTotalCpa = grandTotalInquiries > 0 ? Math.round(grandTotalSpend / grandTotalInquiries) : 'N/A';
+        let grandTotalCpaText = grandTotalCpa !== 'N/A' ? '$' + grandTotalCpa.toLocaleString() : 'N/A';
+
+        grandTotalTr.innerHTML = `
+            <td>🌟 總計 (所有選擇區域)</td>
+            <td class="spend-col">$${Math.round(grandTotalSpend).toLocaleString()}</td>
+            <td class="sum-col">${grandTotalInquiries.toLocaleString()}</td>
+            <td class="sum-col">${grandTotalCpaText}</td>
+        `;
+        tbody.appendChild(grandTotalTr);
+
+        // --- 2. 渲染各別縣市的資料 ---
         dataArray.forEach(row => {
             let tr = document.createElement('tr');
-            let cpa = row.total > 0 ? (row.spend / row.total).toFixed(2) : 'N/A';
-            let cpaText = cpa !== 'N/A' ? '$' + Number(cpa).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
+            
+            // 計算 CPA 並四捨五入到整數 (Math.round)
+            let cpa = row.total > 0 ? Math.round(row.spend / row.total) : 'N/A';
+            let cpaText = cpa !== 'N/A' ? '$' + cpa.toLocaleString() : 'N/A';
 
             tr.innerHTML = `
                 <td>${row.name}</td>
