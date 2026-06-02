@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+facebook_business
+python-dotenv

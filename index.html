@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>跨帳號：區域成效彙整儀表板</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        h2 { color: #2c3e50; text-align: center; }
+        .controls { background-color: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        .flex-row { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .account-checkboxes label { margin-right: 15px; cursor: pointer; font-weight: bold; color: #005a9e; }
+        input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        .btn { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn:hover { background-color: #45a049; }
+        
+        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px; }
+        h3 { color: #0078D7; border-bottom: 2px solid #0078D7; padding-bottom: 8px; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: right; }
+        th { background-color: #f8f9fa; color: #333; text-align: center; }
+        td:first-child { text-align: left; font-weight: bold; color: #444; }
+        
+        .sum-col { font-weight: bold; color: #d84315; }
+        .spend-col { color: #2e7d32; font-weight: bold; }
+        .loading { text-align: center; color: #0078D7; font-weight: bold; display: none; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🌍 跨帳號：縣市區域成效彙整儀表板</h2>
+    
+    <div class="controls">
+        <div class="flex-row">
+            <strong>📅 日期區間:</strong>
+            <input type="date" id="start-date"> ~ <input type="date" id="end-date">
+        </div>
+        <div class="flex-row account-checkboxes">
+            <strong>💼 選擇帳號:</strong>
+            <label><input type="checkbox" value="act_277041914778145" checked> 生生優動_1號</label>
+            <label><input type="checkbox" value="act_1928316564233603" checked> 生生優動_2號</label>
+            <label><input type="checkbox" value="act_163705990039437" checked> 生生優動_3號</label>
+            <label><input type="checkbox" value="act_1395940734404112" checked> 生生優動_4號</label>
+        </div>
+        <button class="btn" onclick="fetchMultiAccountData()">🚀 彙整運算數據</button>
+    </div>
+
+    <div id="loading" class="loading">⏳ 正在深度分析廣告數據，請稍候...</div>
+
+    <div class="card" id="dashboard" style="display: none;">
+        <h3>📍 各縣市成效統計 (雙北合併)</h3>
+        <table id="county-table">
+            <thead>
+                <tr>
+                    <th>縣市/區域</th>
+                    <th>花費金額</th>
+                    <th>總詢問數</th>
+                    <th>CPA (單次詢問成本)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    // 🌐 雲端後端網址設定
+    // 當你在本地測試時會自動連本地端；部署到 Render 後，請把下面的 'https://你的後端網址.onrender.com' 換成 Render 給你的網址
+    const BACKEND_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+        ? 'http://127.0.0.1:8000'
+        : 'https://你的後端網址.onrender.com'; 
+
+    const today = new Date();
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    document.getElementById('end-date').value = today.toISOString().split('T')[0];
+    document.getElementById('start-date').value = lastWeek.toISOString().split('T')[0];
+
+    function parseCampaignName(campaignName) {
+        let county = "雙北"; 
+        let parts = campaignName.split('_');
+        let prefix = parts[0]; 
+        const otherLocations = ["基隆", "桃園", "竹苗", "新竹", "苗栗", "台中", "彰化", "南投", "雲林", "嘉義", "台南", "高雄", "屏東", "宜蘭", "花蓮", "台東", "澎湖", "金門", "馬祖"];
+        for (let loc of otherLocations) {
+            if (prefix.includes(loc)) { county = loc; break; }
+        }
+        return { county };
+    }
+
+    function fetchMultiAccountData() {
+        const startDate = document.getElementById('start-date').value;
+        const endDate = document.getElementById('end-date').value;
+        const accountIds = Array.from(document.querySelectorAll('.account-checkboxes input:checked')).map(cb => cb.value).join(',');
+
+        if(!accountIds) { alert("請選擇帳號！"); return; }
+
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('dashboard').style.display = 'none';
+
+        // 這裡改用動態的 BACKEND_URL
+        fetch(`${BACKEND_URL}/api/campaign_stats?start_date=${startDate}&end_date=${endDate}&account_ids=${accountIds}`)
+            .then(res => res.json())
+            .then(result => {
+                document.getElementById('loading').style.display = 'none';
+                if (result.status === 'success') {
+                    processDashboardData(result.data);
+                }
+            })
+            .catch(err => {
+                document.getElementById('loading').style.display = 'none';
+                alert("連線失敗：" + err);
+            });
+    }
+
+    function processDashboardData(data) {
+        let countyStats = {};
+
+        data.forEach(item => {
+            let { county } = parseCampaignName(item.campaignName);
+
+            if (!countyStats[county]) countyStats[county] = { spend: 0, comments: 0, messages: 0 };
+            countyStats[county].spend += item.spend;
+            countyStats[county].comments += item.comments;
+            countyStats[county].messages += item.messages;
+        });
+
+        renderTable('county-table', countyStats);
+        document.getElementById('dashboard').style.display = 'block';
+    }
+
+    function renderTable(tableId, dataObj) {
+        const tbody = document.querySelector(`#${tableId} tbody`);
+        tbody.innerHTML = '';
+
+        let dataArray = Object.keys(dataObj).map(key => ({
+            name: key,
+            spend: dataObj[key].spend,
+            total: dataObj[key].comments + dataObj[key].messages
+        }));
+
+        // 依據總詢問數排序
+        dataArray.sort((a, b) => b.total - a.total);
+
+        dataArray.forEach(row => {
+            let tr = document.createElement('tr');
+            let cpa = row.total > 0 ? (row.spend / row.total).toFixed(2) : 'N/A';
+            let cpaText = cpa !== 'N/A' ? '$' + Number(cpa).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
+
+            tr.innerHTML = `
+                <td>${row.name}</td>
+                <td class="spend-col">$${Math.round(row.spend).toLocaleString()}</td>
+                <td class="sum-col">${row.total.toLocaleString()}</td>
+                <td class="sum-col">${cpaText}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+</script>
+
+</body>
+</html>
