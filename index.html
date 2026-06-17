@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>跨帳號：素材與區域彙整儀表板</title>
+    <title>跨帳號：區域成效彙整儀表板</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .container { background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .container { max-width: 1000px; margin: 0 auto; background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h2 { color: #2c3e50; text-align: center; }
         .controls { background-color: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
         .flex-row { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
@@ -15,21 +15,17 @@
         .btn { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn:hover { background-color: #45a049; }
         
-        .dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-        .full-width { grid-column: span 2; } 
-        
-        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px; }
         h3 { color: #0078D7; border-bottom: 2px solid #0078D7; padding-bottom: 8px; margin-top: 0; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #eee; padding: 10px; text-align: right; }
+        table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        th, td { border: 1px solid #eee; padding: 12px; text-align: right; }
         th { background-color: #f8f9fa; color: #333; text-align: center; }
         td:first-child { text-align: left; font-weight: bold; color: #444; }
         
         .sum-col { font-weight: bold; color: #d84315; }
         .spend-col { color: #2e7d32; font-weight: bold; }
         .loading { text-align: center; color: #0078D7; font-weight: bold; display: none; margin: 20px 0; }
-        
-        .ad-name-cell { color: #512da8; font-weight: bold; }
+
         /* 🌟 新增總計列的醒目顏色 */
         .total-row { background-color: #fff3e0 !important; }
         .total-row td:first-child { color: #d84315 !important; font-size: 14px; }
@@ -38,7 +34,7 @@
 <body>
 
 <div class="container">
-    <h2>🌍 跨帳號：縣市/粉專/素材成效彙整儀表板</h2>
+    <h2>🌍 跨帳號：縣市區域成效彙整儀表板</h2>
     
     <div class="controls">
         <div class="flex-row">
@@ -47,51 +43,38 @@
         </div>
         <div class="flex-row account-checkboxes">
             <strong>💼 選擇帳號:</strong>
-
+            <label><input type="checkbox" value="act_277041914778145" checked> 生生優動_1號</label>
+            <label><input type="checkbox" value="act_1928316564233603" checked> 生生優動_2號</label>
+            <label><input type="checkbox" value="act_163705990039437" checked> 生生優動_3號</label>
+            <label><input type="checkbox" value="act_1395940734404112" checked> 生生優動_4號</label>
         </div>
         <button class="btn" onclick="fetchMultiAccountData()">🚀 彙整運算數據</button>
     </div>
 
-    <div id="loading" class="loading">⏳ 正在深度分析廣告素材數據，請稍候...</div>
+    <div id="loading" class="loading">⏳ 正在深度分析廣告數據，請稍候...</div>
 
-    <div class="dashboard-grid" id="dashboard" style="display: none;">
-        
-        <div class="card full-width">
-            <h3>🖼️ 廣告素材表現排名 (相同名稱已合併計算)</h3>
-            <table id="creative-table">
-                <thead>
-                    <tr>
-                        <th>廣告素材名稱</th>
-                        <th>花費金額</th>
-                        <th>詢問數 (傳訊)</th>
-                        <th>留言數</th>
-                        <th>互動合計</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h3>📍 各縣市成效統計 (雙北合併)</h3>
-            <table id="county-table">
-                <thead><tr><th>縣市/區域</th><th>花費金額</th><th>詢問數 (傳訊)</th><th>留言數</th><th>互動合計</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h3>📢 各粉專成效統計</h3>
-            <table id="fanpage-table">
-                <thead><tr><th>粉專名稱</th><th>花費金額</th><th>詢問數 (傳訊)</th><th>留言數</th><th>互動合計</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
+    <div class="card" id="dashboard" style="display: none;">
+        <h3>📍 各縣市成效統計 (雙北合併)</h3>
+        <table id="county-table">
+            <thead>
+                <tr>
+                    <th>縣市/區域</th>
+                    <th>花費金額</th>
+                    <th>總詢問數</th>
+                    <th>CPA (單次詢問成本)</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 
 <script>
+    // 🌐 雲端後端網址設定
+    const BACKEND_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
+        ? 'http://127.0.0.1:8000'
+        : 'https://你的後端網址.onrender.com'; 
+
     const today = new Date();
     const lastWeek = new Date(today);
     lastWeek.setDate(lastWeek.getDate() - 7);
@@ -100,17 +83,13 @@
 
     function parseCampaignName(campaignName) {
         let county = "雙北"; 
-        let fanPage = "未分類粉專";
         let parts = campaignName.split('_');
-        if (parts.length > 1) {
-            fanPage = parts.slice(1).join('_').trim();
-        }
         let prefix = parts[0]; 
         const otherLocations = ["基隆", "桃園", "竹苗", "新竹", "苗栗", "台中", "彰化", "南投", "雲林", "嘉義", "台南", "高雄", "屏東", "宜蘭", "花蓮", "台東", "澎湖", "金門", "馬祖"];
         for (let loc of otherLocations) {
             if (prefix.includes(loc)) { county = loc; break; }
         }
-        return { county, fanPage };
+        return { county };
     }
 
     function fetchMultiAccountData() {
@@ -123,7 +102,7 @@
         document.getElementById('loading').style.display = 'block';
         document.getElementById('dashboard').style.display = 'none';
 
-        fetch(`http://127.0.0.1:8000/api/campaign_stats?start_date=${startDate}&end_date=${endDate}&account_ids=${accountIds}`)
+        fetch(`${BACKEND_URL}/api/campaign_stats?start_date=${startDate}&end_date=${endDate}&account_ids=${accountIds}`)
             .then(res => res.json())
             .then(result => {
                 document.getElementById('loading').style.display = 'none';
@@ -139,87 +118,57 @@
 
     function processDashboardData(data) {
         let countyStats = {};
-        let fanPageStats = {};
-        let creativeStats = {}; 
 
         data.forEach(item => {
-            let { county, fanPage } = parseCampaignName(item.campaignName);
-            let adName = item.adName || "未命名素材";
+            let { county } = parseCampaignName(item.campaignName);
 
             if (!countyStats[county]) countyStats[county] = { spend: 0, comments: 0, messages: 0 };
             countyStats[county].spend += item.spend;
             countyStats[county].comments += item.comments;
             countyStats[county].messages += item.messages;
-
-            if (!fanPageStats[fanPage]) fanPageStats[fanPage] = { spend: 0, comments: 0, messages: 0 };
-            fanPageStats[fanPage].spend += item.spend;
-            fanPageStats[fanPage].comments += item.comments;
-            fanPageStats[fanPage].messages += item.messages;
-
-            if (!creativeStats[adName]) creativeStats[adName] = { spend: 0, comments: 0, messages: 0 };
-            creativeStats[adName].spend += item.spend;
-            creativeStats[adName].comments += item.comments;
-            creativeStats[adName].messages += item.messages;
         });
 
-        renderTable('creative-table', creativeStats, true); 
         renderTable('county-table', countyStats);
-        renderTable('fanpage-table', fanPageStats);
-        document.getElementById('dashboard').style.display = 'grid';
+        document.getElementById('dashboard').style.display = 'block';
     }
 
-    function renderTable(tableId, dataObj, isCreative = false) {
+    function renderTable(tableId, dataObj) {
         const tbody = document.querySelector(`#${tableId} tbody`);
         tbody.innerHTML = '';
 
         let dataArray = Object.keys(dataObj).map(key => ({
             name: key,
             spend: dataObj[key].spend,
-            comments: dataObj[key].comments,
-            messages: dataObj[key].messages,
             total: dataObj[key].comments + dataObj[key].messages
         }));
 
-        // 🌟 針對「縣市表格」做特別排序與產生總計列
-        if (tableId === 'county-table') {
-            // 計算總計
-            if (dataArray.length > 0) {
-                let totalRow = {
-                    name: "總計",
-                    spend: dataArray.reduce((sum, row) => sum + row.spend, 0),
-                    comments: dataArray.reduce((sum, row) => sum + row.comments, 0),
-                    messages: dataArray.reduce((sum, row) => sum + row.messages, 0),
-                    total: dataArray.reduce((sum, row) => sum + row.total, 0)
-                };
-                dataArray.push(totalRow);
-            }
+        // 🌟 計算總計並加入陣列
+        if (dataArray.length > 0) {
+            let totalRow = {
+                name: "總計",
+                spend: dataArray.reduce((sum, row) => sum + row.spend, 0),
+                total: dataArray.reduce((sum, row) => sum + row.total, 0)
+            };
+            dataArray.push(totalRow);
+        }
 
-            // 指定固定排序清單
-            const order = ["總計", "雙北", "桃園", "竹苗", "台中", "台南", "高雄"];
+        // 🌟 指定固定排序清單
+        const order = ["總計", "雙北", "桃園", "竹苗", "台中", "台南", "高雄"];
+        
+        dataArray.sort((a, b) => {
+            let idxA = order.indexOf(a.name);
+            let idxB = order.indexOf(b.name);
             
-            dataArray.sort((a, b) => {
-                let idxA = order.indexOf(a.name);
-                let idxB = order.indexOf(b.name);
-                
-                // 如果不在指定清單內，給予極大值排到最下面
-                if (idxA === -1) idxA = 999;
-                if (idxB === -1) idxB = 999;
-                
-                if (idxA !== idxB) {
-                    return idxA - idxB;
-                } else {
-                    return b.total - a.total; // 若都不在名單內，依成效由高至低排
-                }
-            });
-        } else {
-            // 素材與粉專表格：維持依據合計數由高至低排序
-            dataArray.sort((a, b) => b.total - a.total);
-        }
-
-        if (dataArray.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">目前沒有符合數據</td></tr>`;
-            return;
-        }
+            // 如果不在指定清單內，給予極大值排到最下面
+            if (idxA === -1) idxA = 999;
+            if (idxB === -1) idxB = 999;
+            
+            if (idxA !== idxB) {
+                return idxA - idxB;
+            } else {
+                return b.total - a.total; // 若都不在名單內，依成效由高至低排
+            }
+        });
 
         dataArray.forEach(row => {
             let tr = document.createElement('tr');
@@ -229,12 +178,14 @@
                 tr.className = 'total-row';
             }
 
+            let cpa = row.total > 0 ? (row.spend / row.total).toFixed(2) : 'N/A';
+            let cpaText = cpa !== 'N/A' ? '$' + Number(cpa).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
+
             tr.innerHTML = `
-                <td class="${isCreative ? 'ad-name-cell' : ''}">${row.name}</td>
+                <td>${row.name}</td>
                 <td class="spend-col">$${Math.round(row.spend).toLocaleString()}</td>
-                <td>${row.messages.toLocaleString()}</td>
-                <td>${row.comments.toLocaleString()}</td>
                 <td class="sum-col">${row.total.toLocaleString()}</td>
+                <td class="sum-col">${cpaText}</td>
             `;
             tbody.appendChild(tr);
         });
