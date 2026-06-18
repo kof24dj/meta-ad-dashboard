@@ -3,17 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>跨帳號：區域成效彙整儀表板</title>
+    <title>跨帳號：區域成效彙整儀表板 (含留單CPL分析)</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f7f6; color: #333; }
-        .container { max-width: 1000px; margin: 0 auto; background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .container { max-width: 1100px; margin: 0 auto; background-color: white; padding: 25px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         h2 { color: #2c3e50; text-align: center; }
         .controls { background-color: #eef2f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-        .flex-row { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .flex-row { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 15px; }
         .account-checkboxes label { margin-right: 15px; cursor: pointer; font-weight: bold; color: #005a9e; }
-        input[type="date"] { padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        input[type="date"], input[type="file"] { padding: 8px; border: 1px solid #ccc; border-radius: 5px; background: white; }
         .btn { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
         .btn:hover { background-color: #45a049; }
+        .upload-section { border-top: 1px dashed #ccc; padding-top: 15px; margin-top: 5px; }
+        .excel-status { margin-left: 15px; font-weight: bold; color: #e65100; }
         
         .card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-top: 20px; }
         h3 { color: #0078D7; border-bottom: 2px solid #0078D7; padding-bottom: 8px; margin-top: 0; }
@@ -24,9 +27,9 @@
         
         .sum-col { font-weight: bold; color: #d84315; }
         .spend-col { color: #2e7d32; font-weight: bold; }
+        .cpl-col { color: #1565c0; font-weight: bold; background-color: #f0f8ff; } /* CPL欄位特別標示 */
         .loading { text-align: center; color: #0078D7; font-weight: bold; display: none; margin: 20px 0; }
 
-        /* 🌟 新增總計列的醒目顏色 */
         .total-row { background-color: #fff3e0 !important; }
         .total-row td:first-child { color: #d84315 !important; font-size: 14px; }
     </style>
@@ -34,11 +37,11 @@
 <body>
 
 <div class="container">
-    <h2>🌍 跨帳號：縣市區域成效彙整儀表板</h2>
+    <h2>🌍 跨帳號：縣市區域成效與 CPL 彙整儀表板</h2>
     
     <div class="controls">
         <div class="flex-row">
-            <strong>📅 日期區間:</strong>
+            <strong>📅 廣告日期區間:</strong>
             <input type="date" id="start-date"> ~ <input type="date" id="end-date">
         </div>
         <div class="flex-row account-checkboxes">
@@ -49,20 +52,29 @@
             <label><input type="checkbox" value="act_1395940734404112" checked> 生生優動_4號</label>
             <label><input type="checkbox" value="act_1101214194295557" checked> 生生優活</label>
         </div>
-        <button class="btn" onclick="fetchMultiAccountData()">🚀 彙整運算數據</button>
+        
+        <div class="flex-row upload-section">
+            <strong>📊 留單數據 (Excel):</strong>
+            <input type="file" id="excel-upload" accept=".xlsx, .xls, .csv">
+            <span class="excel-status" id="excel-status">尚未上傳 Excel</span>
+        </div>
+        
+        <button class="btn" onclick="fetchMultiAccountData()">🚀 抓取廣告並彙整數據</button>
     </div>
 
-    <div id="loading" class="loading">⏳ 正在深度分析廣告數據，請稍候...</div>
+    <div id="loading" class="loading">⏳ 正在深度分析廣告與留單數據，請稍候...</div>
 
     <div class="card" id="dashboard" style="display: none;">
-        <h3>📍 各縣市成效統計 (雙北合併)</h3>
+        <h3>📍 各縣市成效與留單統計</h3>
         <table id="county-table">
             <thead>
                 <tr>
                     <th>縣市/區域</th>
-                    <th>花費金額</th>
-                    <th>總詢問數</th>
-                    <th>CPA (單次詢問成本)</th>
+                    <th>花費金額 (FB)</th>
+                    <th>總詢問數 (FB)</th>
+                    <th>CPA (詢問成本)</th>
+                    <th class="cpl-col">總留單數 (Excel)</th>
+                    <th class="cpl-col">CPL (留單成本)</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -71,34 +83,105 @@
 </div>
 
 <script>
-    // 🌐 雲端後端網址設定
+    // 🌐 請記得替換為您的 Render 後端網址
     const BACKEND_URL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'
         ? 'http://127.0.0.1:8000'
         : 'https://meta-ad-backend.onrender.com'; 
 
+    // 初始化日期
     const today = new Date();
     const lastWeek = new Date(today);
     lastWeek.setDate(lastWeek.getDate() - 7);
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
     document.getElementById('start-date').value = lastWeek.toISOString().split('T')[0];
 
+    // 全域變數儲存資料
+    window.metaStatsData = {};
+    window.excelLeadsData = {};
+
+    // 🌟 預約門店與七大區域對照表
+    const clinicRegionMap = {
+        "天母運動物理治療所": "雙北", "民生運動物理治療所": "雙北", "忠孝新生診所": "雙北",
+        "內湖運動物理治療所": "雙北", "古亭診所": "雙北", "信義運動物理治療所": "雙北",
+        "萬芳運動物理治療所": "雙北", "南京運動物理治療所": "雙北", "板橋診所": "雙北",
+        "板橋運動物理治療所": "雙北", "雙和運動物理治療所": "雙北", "林口運動物理治療所": "雙北",
+        "新店運動物理治療所": "雙北", "三重運動物理治療所": "雙北", "新莊運動物理治療所": "雙北",
+        "蘆洲運動物理治療所": "雙北", "汐止運動物理治療所": "雙北", "土城運動物理治療所": "雙北",
+        "南港運動物理治療所": "雙北", "士林運動物理治療所": "雙北", "南勢角運動物理治療所": "雙北",
+        "羅東運動物理治療所": "宜蘭",
+        "藝文運動物理治療所": "桃園", "南崁運動物理治療所": "桃園", "中壢運動物理治療所": "桃園", "平鎮運動物理治療所": "桃園",
+        "竹北運動物理治療所": "竹苗", "頭份運動物理治療所": "竹苗", "北大運動物理治療所": "竹苗",
+        "文心運動物理治療所": "台中", "崇德運動物理治療所": "台中", "黎明運動診所": "台中", "豐原運動物理治療所": "台中", "大里運動物理治療所": "台中",
+        "西門運動物理治療所": "台南", "海安運動物理治療所": "台南",
+        "博愛明誠運動物理治療所": "高雄", "文山運動物理治療所": "高雄", "文化中心運動物理治療所": "高雄", "自強診所": "高雄"
+    };
+
+    // 🌟 處理 Excel 上傳邏輯
+    document.getElementById('excel-upload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const json = XLSX.utils.sheet_to_json(worksheet);
+
+            let seenPhones = new Set();
+            let leadsTally = { "雙北": 0, "宜蘭": 0, "桃園": 0, "竹苗": 0, "台中": 0, "台南": 0, "高雄": 0 };
+
+            json.forEach(row => {
+                let channel = row["一級渠道"] ? row["一級渠道"].toString().trim().toUpperCase() : "";
+                let phone = row["電話"] ? row["電話"].toString().trim() : "";
+                let clinic = row["預約門店"] ? row["預約門店"].toString().trim() : "";
+
+                // 條件：一級渠道為 FB 且有電話
+                if (channel === "FB" && phone) {
+                    // 排除重複：電話號碼若已存在則跳過
+                    if (!seenPhones.has(phone)) {
+                        seenPhones.add(phone);
+                        let region = clinicRegionMap[clinic] || "未分類";
+                        
+                        if (leadsTally[region] !== undefined) {
+                            leadsTally[region]++;
+                        }
+                    }
+                }
+            });
+
+            window.excelLeadsData = leadsTally;
+            document.getElementById('excel-status').innerText = `✅ Excel 處理完成 (共 ${seenPhones.size} 筆有效 FB 不重複留單)`;
+            document.getElementById('excel-status').style.color = '#2e7d32';
+            
+            // 如果 Meta 數據已經存在，直接重新渲染表格
+            if (Object.keys(window.metaStatsData).length > 0) {
+                renderCombinedTable();
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    // 解析 Meta 行銷活動名稱 (加入宜蘭)
     function parseCampaignName(campaignName) {
         let county = "雙北"; 
         let parts = campaignName.split('_');
         let prefix = parts[0]; 
-        const otherLocations = ["基隆", "桃園", "竹苗", "新竹", "苗栗", "台中", "彰化", "南投", "雲林", "嘉義", "台南", "高雄", "屏東", "宜蘭", "花蓮", "台東", "澎湖", "金門", "馬祖"];
+        const otherLocations = ["宜蘭", "基隆", "桃園", "竹苗", "新竹", "苗栗", "台中", "彰化", "南投", "雲林", "嘉義", "台南", "高雄", "屏東", "花蓮", "台東", "澎湖", "金門", "馬祖"];
         for (let loc of otherLocations) {
             if (prefix.includes(loc)) { county = loc; break; }
         }
         return { county };
     }
 
+    // 抓取 Meta 廣告數據
     function fetchMultiAccountData() {
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
         const accountIds = Array.from(document.querySelectorAll('.account-checkboxes input:checked')).map(cb => cb.value).join(',');
 
-        if(!accountIds) { alert("請選擇帳號！"); return; }
+        if(!accountIds) { alert("請至少選擇一個帳號！"); return; }
 
         document.getElementById('loading').style.display = 'block';
         document.getElementById('dashboard').style.display = 'none';
@@ -108,7 +191,7 @@
             .then(result => {
                 document.getElementById('loading').style.display = 'none';
                 if (result.status === 'success') {
-                    processDashboardData(result.data);
+                    processMetaDashboardData(result.data);
                 }
             })
             .catch(err => {
@@ -117,7 +200,7 @@
             });
     }
 
-    function processDashboardData(data) {
+    function processMetaDashboardData(data) {
         let countyStats = {};
 
         data.forEach(item => {
@@ -129,67 +212,75 @@
             countyStats[county].messages += item.messages;
         });
 
-        renderTable('county-table', countyStats);
-        document.getElementById('dashboard').style.display = 'block';
+        window.metaStatsData = countyStats;
+        renderCombinedTable();
     }
 
-    function renderTable(tableId, dataObj) {
-        const tbody = document.querySelector(`#${tableId} tbody`);
+    // 🌟 合併渲染表格 (Meta + Excel)
+    function renderCombinedTable() {
+        const tbody = document.querySelector(`#county-table tbody`);
         tbody.innerHTML = '';
 
-        let dataArray = Object.keys(dataObj).map(key => ({
-            name: key,
-            spend: dataObj[key].spend,
-            total: dataObj[key].comments + dataObj[key].messages
-        }));
+        let metaData = window.metaStatsData || {};
+        let excelData = window.excelLeadsData || {};
 
-        // 🌟 計算總計並加入陣列
+        let allRegions = new Set([...Object.keys(metaData), ...Object.keys(excelData)]);
+        allRegions.delete("總計"); 
+        
+        let dataArray = [];
+        let totalSpend = 0, totalInquiries = 0, totalLeads = 0;
+
+        allRegions.forEach(region => {
+            let spend = metaData[region] ? metaData[region].spend : 0;
+            let inquiries = metaData[region] ? (metaData[region].comments + metaData[region].messages) : 0;
+            let leads = excelData[region] || 0;
+
+            totalSpend += spend;
+            totalInquiries += inquiries;
+            totalLeads += leads;
+
+            dataArray.push({ name: region, spend: spend, inquiries: inquiries, leads: leads });
+        });
+
         if (dataArray.length > 0) {
-            let totalRow = {
-                name: "總計",
-                spend: dataArray.reduce((sum, row) => sum + row.spend, 0),
-                total: dataArray.reduce((sum, row) => sum + row.total, 0)
-            };
-            dataArray.push(totalRow);
+            dataArray.push({ name: "總計", spend: totalSpend, inquiries: totalInquiries, leads: totalLeads });
         }
 
-        // 🌟 指定固定排序清單
-        const order = ["總計", "雙北", "桃園", "竹苗", "台中", "台南", "高雄"];
+        // 🌟 指定固定排序清單 (加入宜蘭)
+        const order = ["總計", "雙北", "宜蘭", "桃園", "竹苗", "台中", "台南", "高雄"];
         
         dataArray.sort((a, b) => {
             let idxA = order.indexOf(a.name);
             let idxB = order.indexOf(b.name);
-            
-            // 如果不在指定清單內，給予極大值排到最下面
             if (idxA === -1) idxA = 999;
             if (idxB === -1) idxB = 999;
-            
-            if (idxA !== idxB) {
-                return idxA - idxB;
-            } else {
-                return b.total - a.total; // 若都不在名單內，依成效由高至低排
-            }
+            if (idxA !== idxB) return idxA - idxB;
+            return b.inquiries - a.inquiries; 
         });
 
         dataArray.forEach(row => {
             let tr = document.createElement('tr');
-            
-            // 替總計列加上醒目底色 class
-            if (row.name === '總計') {
-                tr.className = 'total-row';
-            }
+            if (row.name === '總計') tr.className = 'total-row';
 
-            let cpa = row.total > 0 ? (row.spend / row.total).toFixed(2) : 'N/A';
+            let cpa = row.inquiries > 0 ? (row.spend / row.inquiries).toFixed(2) : 'N/A';
             let cpaText = cpa !== 'N/A' ? '$' + Number(cpa).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
+
+            // 🌟 計算 CPL
+            let cpl = row.leads > 0 ? (row.spend / row.leads).toFixed(0) : 'N/A';
+            let cplText = cpl !== 'N/A' ? '$' + Number(cpl).toLocaleString() : 'N/A';
 
             tr.innerHTML = `
                 <td>${row.name}</td>
                 <td class="spend-col">$${Math.round(row.spend).toLocaleString()}</td>
-                <td class="sum-col">${row.total.toLocaleString()}</td>
+                <td class="sum-col">${row.inquiries.toLocaleString()}</td>
                 <td class="sum-col">${cpaText}</td>
+                <td class="cpl-col">${row.leads.toLocaleString()}</td>
+                <td class="cpl-col">${cplText}</td>
             `;
             tbody.appendChild(tr);
         });
+
+        document.getElementById('dashboard').style.display = 'block';
     }
 </script>
 
