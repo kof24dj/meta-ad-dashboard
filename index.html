@@ -88,19 +88,18 @@
         ? 'http://127.0.0.1:8000'
         : 'https://meta-ad-backend.onrender.com'; 
 
-    // 初始化日期
     const today = new Date();
     const lastWeek = new Date(today);
     lastWeek.setDate(lastWeek.getDate() - 7);
     document.getElementById('end-date').value = today.toISOString().split('T')[0];
     document.getElementById('start-date').value = lastWeek.toISOString().split('T')[0];
 
-    // 全域變數儲存資料
     window.metaStatsData = {};
     window.excelLeadsData = {};
 
-    // 🌟 預約門店與七大區域對照表
+    // 🌟 預約門店與七大區域對照表 (已新增 生生優動)
     const clinicRegionMap = {
+        "生生優動": "雙北", // 新增的店名/規則
         "天母運動物理治療所": "雙北", "民生運動物理治療所": "雙北", "忠孝新生診所": "雙北",
         "內湖運動物理治療所": "雙北", "古亭診所": "雙北", "信義運動物理治療所": "雙北",
         "萬芳運動物理治療所": "雙北", "南京健康管理診所": "雙北", "板橋診所": "雙北",
@@ -111,12 +110,12 @@
         "羅東運動物理治療所": "宜蘭",
         "藝文運動物理治療所": "桃園", "南崁運動物理治療所": "桃園", "中壢運動物理治療所": "桃園", "平鎮運動物理治療所": "桃園",
         "竹北運動物理治療所": "竹苗", "頭份運動物理治療所": "竹苗", "北大運動物理治療所": "竹苗",
-        "文心運動物理治療所": "台中", "崇德運動物理治療所": "台中", "黎明診所": "台中", "豐原運動物理治療所": "台中", "大里運動物理治療所": "台中",
+        "文心運動物理治療所": "台中", "崇德運動物理治療所": "台中", "黎明運動診所": "台中", "豐原運動物理治療所": "台中", "大里運動物理治療所": "台中",
         "西門運動物理治療所": "台南", "海安運動物理治療所": "台南",
         "博愛明誠運動物理治療所": "高雄", "文山運動物理治療所": "高雄", "文化中心運動物理治療所": "高雄", "自強診所": "高雄"
     };
 
-    // 🌟 處理 Excel 上傳邏輯
+    // 處理 Excel 上傳邏輯
     document.getElementById('excel-upload').addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -133,13 +132,17 @@
             let leadsTally = { "雙北": 0, "宜蘭": 0, "桃園": 0, "竹苗": 0, "台中": 0, "台南": 0, "高雄": 0 };
 
             json.forEach(row => {
-                let channel = row["一級渠道"] ? row["一級渠道"].toString().trim().toUpperCase() : "";
+                // 🌟 抓取一級與二級渠道，並轉換為大寫方便比對
+                let channel1 = row["一級渠道"] ? row["一級渠道"].toString().trim().toUpperCase() : "";
+                let channel2 = row["二級渠道"] ? row["二級渠道"].toString().trim().toUpperCase() : "";
                 let phone = row["電話"] ? row["電話"].toString().trim() : "";
                 let clinic = row["預約門店"] ? row["預約門店"].toString().trim() : "";
 
-                // 條件：一級渠道為 FB 且有電話
-                if (channel === "FB" && phone) {
-                    // 排除重複：電話號碼若已存在則跳過
+                // 🌟 判斷條件更新：只要一級或二級渠道「包含」FB或粉專，皆納入計算
+                let isFB = channel1.includes("FB") || channel1.includes("粉專") || 
+                           channel2.includes("FB") || channel2.includes("粉專");
+
+                if (isFB && phone) {
                     if (!seenPhones.has(phone)) {
                         seenPhones.add(phone);
                         let region = clinicRegionMap[clinic] || "未分類";
@@ -155,7 +158,6 @@
             document.getElementById('excel-status').innerText = `✅ Excel 處理完成 (共 ${seenPhones.size} 筆有效 FB 不重複留單)`;
             document.getElementById('excel-status').style.color = '#2e7d32';
             
-            // 如果 Meta 數據已經存在，直接重新渲染表格
             if (Object.keys(window.metaStatsData).length > 0) {
                 renderCombinedTable();
             }
@@ -163,7 +165,6 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // 解析 Meta 行銷活動名稱 (加入宜蘭)
     function parseCampaignName(campaignName) {
         let county = "雙北"; 
         let parts = campaignName.split('_');
@@ -175,7 +176,6 @@
         return { county };
     }
 
-    // 抓取 Meta 廣告數據
     function fetchMultiAccountData() {
         const startDate = document.getElementById('start-date').value;
         const endDate = document.getElementById('end-date').value;
@@ -216,7 +216,6 @@
         renderCombinedTable();
     }
 
-    // 🌟 合併渲染表格 (Meta + Excel)
     function renderCombinedTable() {
         const tbody = document.querySelector(`#county-table tbody`);
         tbody.innerHTML = '';
@@ -246,7 +245,6 @@
             dataArray.push({ name: "總計", spend: totalSpend, inquiries: totalInquiries, leads: totalLeads });
         }
 
-        // 🌟 指定固定排序清單 (加入宜蘭)
         const order = ["總計", "雙北", "宜蘭", "桃園", "竹苗", "台中", "台南", "高雄"];
         
         dataArray.sort((a, b) => {
@@ -265,7 +263,6 @@
             let cpa = row.inquiries > 0 ? (row.spend / row.inquiries).toFixed(2) : 'N/A';
             let cpaText = cpa !== 'N/A' ? '$' + Number(cpa).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : 'N/A';
 
-            // 🌟 計算 CPL
             let cpl = row.leads > 0 ? (row.spend / row.leads).toFixed(0) : 'N/A';
             let cplText = cpl !== 'N/A' ? '$' + Number(cpl).toLocaleString() : 'N/A';
 
